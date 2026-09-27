@@ -20,6 +20,9 @@
   `ps` that knows its PIDs, so `qmd status`, the daemon start guard and the
   embed lock also recognise a live qmd process, including one started from a
   path with spaces.
+- On Windows, `qmd mcp --http --daemon` run from source now starts. It passed
+  the tsx loader to `node --import` as a bare `C:\` path, which Node rejects,
+  so the daemon exited as soon as it was spawned.
 
 ## [2.8.3] - 2026-08-16
 
