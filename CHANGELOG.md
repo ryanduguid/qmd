@@ -13,6 +13,13 @@
   with the store-selected embedding model instead of the global default. This
   keeps chunk boundaries aligned with the model that creates and verifies the
   stored vectors without initializing an unrelated provider.
+- On Windows, `qmd mcp stop` now stops the MCP daemon instead of deleting its
+  PID file and reporting that the server was not running (#908). The PID
+  identity check reads a process's command line through PowerShell
+  (`Get-CimInstance Win32_Process`), because Windows has no `/proc` and no
+  `ps` that knows its PIDs, so `qmd status`, the daemon start guard and the
+  embed lock also recognise a live qmd process, including one started from a
+  path with spaces.
 
 ## [2.8.3] - 2026-08-16
 
