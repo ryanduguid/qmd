@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { spawnSync } from "node:child_process";
+import crossSpawn from "cross-spawn";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,14 +10,15 @@ const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 function run(label, command, args, options = {}) {
   console.log(`==> ${label}`);
   const { quiet, ...spawnOptions } = options;
-  const result = spawnSync(command, args, {
+  const result = crossSpawn.sync(command, args, {
     cwd: root,
     stdio: quiet ? "pipe" : "inherit",
-    shell: process.platform === "win32",
+    shell: false,
     ...spawnOptions,
   });
-  if (result.status !== 0) {
+  if (result.error || result.status !== 0) {
     console.error(`Package smoke failed: ${label}`);
+    if (result.error) console.error(result.error.message);
     if (quiet) {
       if (result.stdout) process.stderr.write(result.stdout);
       if (result.stderr) process.stderr.write(result.stderr);
@@ -45,7 +46,7 @@ for (const entry of pkg.files ?? []) {
 for (const [name, binPath] of Object.entries(pkg.bin ?? {})) {
   const full = assertPath(binPath, `bin ${name}`);
   const mode = statSync(full).mode;
-  if ((mode & 0o111) === 0) {
+  if (process.platform !== "win32" && (mode & 0o111) === 0) {
     console.error(`Package smoke failed: bin ${name} is not executable (${binPath})`);
     process.exit(1);
   }
