@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "vitest";
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, linkSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -23,6 +23,11 @@ function fixture() {
   const suffix = process.platform === "win32" ? ".exe" : "";
   const executable = join(bin, `node${suffix}`);
   copyFileSync(node, executable);
+  // Homebrew Node loads libnode relative to its executable on macOS.
+  const nodeLib = join(dirname(node), "..", "lib");
+  if (process.platform === "darwin" && existsSync(nodeLib)) {
+    symlinkSync(nodeLib, join(bin, "..", "lib"), "dir");
+  }
   for (const tool of ["bun", "sh"]) linkSync(executable, join(bin, `${tool}${suffix}`));
   const log = join(root, "stages.jsonl");
   writeFileSync(log, "");
