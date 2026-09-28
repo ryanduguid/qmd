@@ -22,12 +22,13 @@ function run(label, command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: root,
     stdio: "inherit",
-    shell: process.platform === "win32",
+    shell: false,
     env: { ...process.env, ...darwinMetalEnv, ...(extraEnv ?? {}) },
     ...spawnOptions,
   });
-  if (result.status !== 0) {
+  if (result.error || result.status !== 0) {
     console.error(`Test task failed: ${label}`);
+    if (result.error) console.error(result.error.message);
     process.exit(result.status ?? 1);
   }
 }

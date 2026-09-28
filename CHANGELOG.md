@@ -9,6 +9,10 @@
 
 ### Fixed
 
+- Test and package smoke runners now handle executable paths containing spaces
+  on Windows, report missing executables, and preserve child failure statuses.
+  Package smoke checks retain execute-bit validation on POSIX only.
+
 - Embedding generation and legacy fingerprint adoption now tokenize documents
   with the store-selected embedding model instead of the global default. This
   keeps chunk boundaries aligned with the model that creates and verifies the
