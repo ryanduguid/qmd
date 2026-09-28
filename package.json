@@ -81,6 +81,7 @@
   "devDependencies": {
     "@oxlint/plugins": "1.78.0",
     "@types/better-sqlite3": "7.6.13",
+    "cross-spawn": "7.0.6",
     "oxlint": "1.78.0",
     "tsx": "4.23.12",
     "vitest": "3.2.7"

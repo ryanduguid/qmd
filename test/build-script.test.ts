@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test } from "vitest";
 import { spawnSync } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
@@ -31,6 +31,11 @@ describe("scripts/build.mjs Windows execPath spaces (#681)", () => {
     mkdirSync(spacedDir, { recursive: true });
     const spacedBin = join(spacedDir, process.platform === "win32" ? "node.exe" : "node");
     copyFileSync(process.execPath, spacedBin);
+    // Homebrew Node loads libnode relative to its executable on macOS.
+    const nodeLib = join(dirname(process.execPath), "..", "lib");
+    if (process.platform === "darwin" && existsSync(nodeLib)) {
+      symlinkSync(nodeLib, join(spacedDir, "..", "lib"), "dir");
+    }
 
     const result = spawnSync(spacedBin, ["-e", "process.stdout.write('ok')"], {
       encoding: "utf8",

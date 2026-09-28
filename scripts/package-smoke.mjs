@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { spawnSync } from "node:child_process";
+import crossSpawn from "cross-spawn";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,7 +10,7 @@ const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 function run(label, command, args, options = {}) {
   console.log(`==> ${label}`);
   const { quiet, ...spawnOptions } = options;
-  const result = spawnSync(command, args, {
+  const result = crossSpawn.sync(command, args, {
     cwd: root,
     stdio: quiet ? "pipe" : "inherit",
     shell: false,
