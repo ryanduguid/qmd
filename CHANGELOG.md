@@ -9,6 +9,8 @@
 
 ### Fixed
 
+- Removed unreachable GRPO training code from the retired entry point in `finetune/train.py`.
+
 - Test and package smoke runners now handle executable paths containing spaces
   and command shims on Windows, report missing executables, and preserve child failure statuses.
   Package smoke checks retain execute-bit validation on POSIX only.
