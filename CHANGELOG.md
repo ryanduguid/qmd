@@ -9,6 +9,9 @@
 
 ### Fixed
 
+- Container smoke builds now verify a pinned mise installer before execution.
+  The mise version advances when the repository pin is updated.
+
 - Test and package smoke runners now handle executable paths containing spaces
   and command shims on Windows, report missing executables, and preserve child failure statuses.
   Package smoke checks retain execute-bit validation on POSIX only.
