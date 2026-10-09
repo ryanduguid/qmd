@@ -20,7 +20,7 @@ flowchart LR
   FTS --> RRF
   RRF --> RR[LLM Reranker]
   RR --> OUT[Final ranked results]
-    style OUT fill:#7851A9,stroke:#FFFFF0,stroke-width:2px,color:#FFFFF0
+    style OUT fill:#990024,stroke:#FFFFF0,stroke-width:2px,color:#FFFFF0
 ```
 
 Typed expansions are routed exclusively: `lex` → BM25/FTS, `vec` and `hyde` → vector search. The original query is sent to both backends, then fused with RRF and reranked.
