@@ -38,6 +38,8 @@ from huggingface_hub import HfApi, login
 from peft import PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+from workdirs import LLAMA_CPP_DIR, WORK_DIR
+
 # Preset configurations for each model size
 PRESETS = {
     "1.7B": {
@@ -131,26 +133,28 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(base_model, trust_remote_code=True)
 
     # Step 2: Save merged model
-    merged_dir = "/tmp/merged_model"
+    merged_dir = str(WORK_DIR / "merged_model")
+    WORK_DIR.mkdir(parents=True, exist_ok=True)
     print(f"\nStep 4: Saving merged model to {merged_dir}...")
     model.save_pretrained(merged_dir, safe_serialization=True)
     tokenizer.save_pretrained(merged_dir)
 
     # Step 3: Setup llama.cpp
     print("\nStep 5: Setting up llama.cpp...")
-    if not os.path.exists("/tmp/llama.cpp"):
-        run_cmd(["git", "clone", "--depth", "1", "https://github.com/ggerganov/llama.cpp.git", "/tmp/llama.cpp"],
+    llama_cpp = LLAMA_CPP_DIR
+    if not llama_cpp.exists():
+        run_cmd(["git", "clone", "--depth", "1", "https://github.com/ggerganov/llama.cpp.git", str(llama_cpp)],
                 "Cloning llama.cpp")
-    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "-r", "/tmp/llama.cpp/requirements.txt"],
+    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "-r", str(llama_cpp / "requirements.txt")],
                    capture_output=True)
 
     # Step 4: Convert to FP16 GGUF
-    gguf_dir = "/tmp/gguf_output"
+    gguf_dir = str(WORK_DIR / "gguf_output")
     os.makedirs(gguf_dir, exist_ok=True)
     gguf_file = f"{gguf_dir}/{model_name}-f16.gguf"
 
     print(f"\nStep 6: Converting to FP16 GGUF...")
-    if not run_cmd([sys.executable, "/tmp/llama.cpp/convert_hf_to_gguf.py",
+    if not run_cmd([sys.executable, str(llama_cpp / "convert_hf_to_gguf.py"),
                     merged_dir, "--outfile", gguf_file, "--outtype", "f16"],
                    "Converting"):
         sys.exit(1)
@@ -162,12 +166,12 @@ def main():
     quantized_files = []
     if not args.skip_quantize:
         print("\nStep 7: Building quantize tool...")
-        os.makedirs("/tmp/llama.cpp/build", exist_ok=True)
-        run_cmd(["cmake", "-B", "/tmp/llama.cpp/build", "-S", "/tmp/llama.cpp", "-DGGML_CUDA=OFF"],
+        os.makedirs(llama_cpp / "build", exist_ok=True)
+        run_cmd(["cmake", "-B", str(llama_cpp / "build"), "-S", str(llama_cpp), "-DGGML_CUDA=OFF"],
                 "CMake configure")
-        run_cmd(["cmake", "--build", "/tmp/llama.cpp/build", "--target", "llama-quantize", "-j", "4"],
+        run_cmd(["cmake", "--build", str(llama_cpp / "build"), "--target", "llama-quantize", "-j", "4"],
                 "Building llama-quantize")
-        quantize_bin = "/tmp/llama.cpp/build/bin/llama-quantize"
+        quantize_bin = str(llama_cpp / "build" / "bin" / "llama-quantize")
 
         print("\nStep 8: Quantizing...")
         for quant_type, desc in [("Q4_K_M", "4-bit"), ("Q5_K_M", "5-bit"), ("Q8_0", "8-bit")]:
