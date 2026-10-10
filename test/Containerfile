@@ -5,9 +5,16 @@ RUN apt-get update && \
       curl ca-certificates bash git build-essential python3 libatomic1 && \
     rm -rf /var/lib/apt/lists/*
 
-# Install mise
+# Verify the pinned mise installer before execution. Update the tag and hash together.
 ENV MISE_YES=1
-RUN curl https://mise.run | sh
+RUN curl --fail --show-error --silent --location --proto '=https' --proto-redir '=https' \
+      "https://github.com/jdx/mise/releases/download/v2026.10.6/install.sh" \
+      --output /tmp/mise-install.sh && \
+    printf '%s  %s\n' \
+      '2caf53ecf2833beec55b096f49d580ca795f9ee01dd4dc7d7eb3185dfe118fe0' \
+      '/tmp/mise-install.sh' | sha256sum --check --strict - && \
+    MISE_VERSION=v2026.10.6 sh /tmp/mise-install.sh && \
+    rm -f /tmp/mise-install.sh
 ENV PATH="/root/.local/bin:$PATH"
 
 # Pre-install node and bun

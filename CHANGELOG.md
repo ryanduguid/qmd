@@ -4,6 +4,7 @@
 
 ### Added
 
+- Build the container install image in CI.
 - Add README navigation links to installation, usage, storage and model configuration.
 - README badges for this fork's code quality and CI.
 - Added Oxlint lint fence.
@@ -11,6 +12,8 @@
 
 ### Fixed
 
+- Container smoke builds now verify a pinned mise installer before execution.
+  The mise version advances when the repository pin is updated.
 - Removed unreachable GRPO training code from the retired entry point in `finetune/train.py`.
 
 - Test and package smoke runners now handle executable paths containing spaces
