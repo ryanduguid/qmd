@@ -32,6 +32,16 @@ Typed expansions are routed exclusively: `lex` â†’ BM25/FTS, `vec` and `hyde` â†
 
 You can read more about QMD's progress in the [CHANGELOG](CHANGELOG.md).
 
+On this page:
+
+- [Quick Start](#quick-start)
+- [Requirements](#requirements)
+- [Installation](#installation-1)
+- [Usage](#usage)
+- [Data Storage](#data-storage)
+- [Model Configuration](#model-configuration)
+- [How It Works](#how-it-works)
+
 ## Quick Start
 
 ```sh
