@@ -38,6 +38,8 @@ from pathlib import Path
 import yaml
 from transformers import TrainerCallback
 
+from workdirs import LLAMA_CPP_DIR, WORK_DIR
+
 
 def export_gguf(model, tokenizer, output_dir: str, model_name: str):
     """Export model to GGUF at Q4_K_M, Q6_K, Q8_0 quantizations."""
@@ -56,7 +58,7 @@ def export_gguf(model, tokenizer, output_dir: str, model_name: str):
         tokenizer.save_pretrained(merged_path)
 
         # Setup llama.cpp
-        llama_cpp = Path("/tmp/llama.cpp")
+        llama_cpp = LLAMA_CPP_DIR
         if not llama_cpp.exists():
             print("Cloning llama.cpp...")
             subprocess.run(
@@ -116,8 +118,9 @@ def export_gguf(model, tokenizer, output_dir: str, model_name: str):
         # Convert to FP16 first
         fp16_file = gguf_dir / f"{model_name}-f16.gguf"
         print(f"Converting to FP16: {fp16_file}")
-        log_out = Path("/tmp/qmd-gguf-convert.log")
-        log_err = Path("/tmp/qmd-gguf-convert.err")
+        WORK_DIR.mkdir(parents=True, exist_ok=True)
+        log_out = WORK_DIR / "qmd-gguf-convert.log"
+        log_err = WORK_DIR / "qmd-gguf-convert.err"
         with log_out.open("w") as out_f, log_err.open("w") as err_f:
             result = subprocess.run(
                 [
