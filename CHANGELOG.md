@@ -4,6 +4,7 @@
 
 ### Added
 
+- Build the container install image in CI.
 - Add README navigation links to installation, usage, storage and model configuration.
 - README badges for this fork's code quality and CI.
 - Added Oxlint lint fence.
