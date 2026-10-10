@@ -93,7 +93,7 @@ jobs:
         with:
           bun-version: latest
 
-      - run: bun install --frozen-lockfile
+      - run: bun install --frozen-lockfile --ignore-scripts
 
       - name: Build the container install image
         run: bash test/smoke-install.sh --build
