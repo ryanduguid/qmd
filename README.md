@@ -1,11 +1,17 @@
 # QMD - Query Markup Documents
 
+**Fork status**
+
+[![Fork code quality](https://app.codacy.com/project/badge/Grade/846b365d24de4640b1f868f7b2183085?branch=main)](https://app.codacy.com/gh/ryanduguid/qmd/dashboard)
+[![Fork CI](https://github.com/ryanduguid/qmd/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ryanduguid/qmd/actions/workflows/ci.yml)
+
 An on-device search engine for everything you need to remember. Index your markdown notes, meeting transcripts, documentation, and knowledge bases. Search with keywords or natural language. Ideal for your agentic flows.
 
 QMD combines BM25 full-text search, vector semantic search, and LLM re-ranking—all running locally via node-llama-cpp with GGUF models.
 
 ```mermaid
 flowchart LR
+%%{init: {"theme": "base", "look": "classic", "themeVariables": {"background": "#000000", "primaryColor": "#66023C", "primaryTextColor": "#FFFFF0", "primaryBorderColor": "#FFFFF0", "lineColor": "#000000", "textColor": "#FFFFF0", "edgeLabelBackground": "#000000", "clusterBkg": "#000000", "clusterBorder": "#FFFFF0", "titleColor": "#FFFFF0"}, "themeCSS": ".flowchart-link, .relationshipLine, marker path { filter: drop-shadow(0px 1px 0px #FFFFF0) drop-shadow(0px -1px 0px #FFFFF0) drop-shadow(1px 0px 0px #FFFFF0) drop-shadow(-1px 0px 0px #FFFFF0); }"}}%%
   Q[User Query] --> X[Query Expansion]
   Q --> FTS[BM25 Search]
   Q --> VS[Vector Search]
@@ -19,11 +25,22 @@ flowchart LR
   FTS --> RRF
   RRF --> RR[LLM Reranker]
   RR --> OUT[Final ranked results]
+    style OUT fill:#990024,stroke:#FFFFF0,stroke-width:2px,color:#FFFFF0
 ```
 
 Typed expansions are routed exclusively: `lex` → BM25/FTS, `vec` and `hyde` → vector search. The original query is sent to both backends, then fused with RRF and reranked.
 
 You can read more about QMD's progress in the [CHANGELOG](CHANGELOG.md).
+
+On this page:
+
+- [Quick Start](#quick-start)
+- [Requirements](#requirements)
+- [Installation](#installation-1)
+- [Usage](#usage)
+- [Data Storage](#data-storage)
+- [Model Configuration](#model-configuration)
+- [How It Works](#how-it-works)
 
 ## Quick Start
 
