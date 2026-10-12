@@ -88,6 +88,7 @@ build_image() {
   mkdir -p test/test-src/test
   cp -r src test/test-src/
   cp -r dist test/test-src/
+  cp -r scripts test/test-src/
   cp -r test/*.test.ts test/test-src/test/
   cp package.json tsconfig.json tsconfig.build.json test/test-src/
 

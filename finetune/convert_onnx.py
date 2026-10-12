@@ -50,6 +50,8 @@ from huggingface_hub import HfApi, login
 from peft import PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+from workdirs import WORK_DIR
+
 PRESETS = {
     "1.7B": {
         "base": "Qwen/Qwen3-1.7B",
@@ -90,7 +92,8 @@ def export_onnx(model, tokenizer, output_dir: str):
     from optimum.exporters.onnx import main_export
 
     # Save merged model to temp dir first (Optimum needs HF format on disk)
-    merged_dir = "/tmp/merged_model_onnx"
+    merged_dir = str(WORK_DIR / "merged_model_onnx")
+    WORK_DIR.mkdir(parents=True, exist_ok=True)
     print(f"\nStep 4: Saving merged model to {merged_dir}...")
     model.save_pretrained(merged_dir, safe_serialization=True)
     tokenizer.save_pretrained(merged_dir)
@@ -434,7 +437,7 @@ def main():
     model, tokenizer = merge_adapters(base_model, sft_model, grpo_model)
 
     # Export to ONNX
-    onnx_dir = f"/tmp/onnx_output/{model_name}"
+    onnx_dir = str(WORK_DIR / "onnx_output" / model_name)
     os.makedirs(onnx_dir, exist_ok=True)
     export_onnx(model, tokenizer, onnx_dir)
 
