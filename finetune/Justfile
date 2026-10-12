@@ -1,6 +1,7 @@
 set shell := ["bash", "-uc"]
 
 validate:
+    uv run validate_workdirs.py
     uv run dataset/validate_schema.py
     uv run dataset/score_data.py
     for f in data/*.jsonl; do \
