@@ -3878,7 +3878,7 @@ export function getTopLevelPathsWithoutContext(db: Database, collectionName: str
     }
   }
 
-  return missing.sort();
+  return missing.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 // =============================================================================
