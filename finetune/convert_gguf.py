@@ -145,8 +145,8 @@ def main():
     if not llama_cpp.exists():
         run_cmd(["git", "clone", "--depth", "1", "https://github.com/ggerganov/llama.cpp.git", str(llama_cpp)],
                 "Cloning llama.cpp")
-    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "-r", str(llama_cpp / "requirements.txt")],
-                   capture_output=True)
+    run_cmd([sys.executable, "-m", "pip", "install", "-q", "-r", str(llama_cpp / "requirements.txt")],
+            "Installing llama.cpp requirements")
 
     # Step 4: Convert to FP16 GGUF
     gguf_dir = str(WORK_DIR / "gguf_output")
