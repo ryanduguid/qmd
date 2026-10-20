@@ -2,8 +2,8 @@
 
 **Fork status**
 
-[![Fork code quality](https://app.codacy.com/project/badge/Grade/846b365d24de4640b1f868f7b2183085?branch=main)](https://app.codacy.com/gh/ryanduguid/qmd/dashboard)
-[![Fork CI](https://github.com/ryanduguid/qmd/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ryanduguid/qmd/actions/workflows/ci.yml)
+[![Fork code quality](https://img.shields.io/codacy/grade/846b365d24de4640b1f868f7b2183085/main?style=flat&labelColor=000000)](https://app.codacy.com/gh/ryanduguid/qmd/dashboard)
+[![Fork CI](https://img.shields.io/github/actions/workflow/status/ryanduguid/qmd/ci.yml?branch=main&label=CI&style=flat&labelColor=000000)](https://github.com/ryanduguid/qmd/actions/workflows/ci.yml)
 
 An on-device search engine for everything you need to remember. Index your markdown notes, meeting transcripts, documentation, and knowledge bases. Search with keywords or natural language. Ideal for your agentic flows.
 
