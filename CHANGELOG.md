@@ -12,6 +12,7 @@
 
 ### Fixed
 
+- Centre the fork code quality and CI badges in the README.
 - Container smoke builds now verify a pinned mise installer before execution.
   The mise version advances when the repository pin is updated.
 - Removed unreachable GRPO training code from the retired entry point in `finetune/train.py`.
