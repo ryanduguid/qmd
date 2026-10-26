@@ -41,6 +41,7 @@ import {
   vacuumDatabase,
   cleanupOrphanedContent,
   cleanupOrphanedVectors,
+  copyVectorsToNewCollections,
   deleteLLMCache,
   deleteInactiveDocuments,
   clearAllEmbeddings,
@@ -73,15 +74,34 @@ import type {
   MetadataScalar,
   MetadataScalarArray,
   MetadataValue,
+  MetadataValueType,
 } from "./metadata.js";
 import {
   parseMetadataFilter,
+  parseMetadataMatch,
   MetadataFilterError,
   type MetadataFilter,
   type MetadataFilterGroup,
   type MetadataFilterNegation,
   type MetadataCondition,
+  type MetadataPredicate,
+  type MetadataPredicateGroup,
+  type MetadataPredicateNegation,
+  type MetadataMatch,
+  type MetadataEntryCondition,
+  type MetadataEntryField,
 } from "./metadata-filter.js";
+import {
+  listMetadata as storeListMetadata,
+  MetadataBindingBudgetError,
+  MetadataOptionError,
+  type ListMetadataOptions,
+  type ListMetadataResult,
+  type MetadataKeySummary,
+  type MetadataKeyTypeSummary,
+  type MetadataValueCount,
+  type MetadataKeyOverview,
+} from "./metadata-store.js";
 import {
   setConfigSource,
   loadConfig,
@@ -129,12 +149,30 @@ export type {
   MetadataScalar,
   MetadataScalarArray,
   MetadataValue,
+  MetadataValueType,
   MetadataFilter,
   MetadataFilterGroup,
   MetadataFilterNegation,
   MetadataCondition,
+  MetadataPredicate,
+  MetadataPredicateGroup,
+  MetadataPredicateNegation,
+  MetadataMatch,
+  MetadataEntryCondition,
+  MetadataEntryField,
 };
-export { parseMetadataFilter, MetadataFilterError };
+export { parseMetadataFilter, parseMetadataMatch, MetadataFilterError };
+
+// Re-export metadata discovery types (listMetadata() and status metadata keys)
+export type {
+  ListMetadataOptions,
+  ListMetadataResult,
+  MetadataKeySummary,
+  MetadataKeyTypeSummary,
+  MetadataValueCount,
+  MetadataKeyOverview,
+};
+export { MetadataBindingBudgetError, MetadataOptionError };
 
 // Re-export the internal Store type for advanced consumers
 export type { InternalStore };
@@ -169,6 +207,10 @@ export type UpdateResult = {
   unchanged: number;
   removed: number;
   skipped: number;
+  /** Vector rows removed because their (hash, collection) no longer has an active document. */
+  staleVectorsRemoved: number;
+  /** Vector rows copied into the partition of a collection that gained an already-embedded hash. */
+  vectorsCopied: number;
   needsEmbedding: number;
 };
 
@@ -302,6 +344,22 @@ export interface QMDStore {
 
   /** List all collections with document stats */
   listCollections(): Promise<{ name: string; pwd: string; glob_pattern: string; doc_count: number; active_count: number; last_modified: string | null; includeByDefault: boolean }[]>;
+
+  /**
+   * Discover metadata keys, types, and value counts across the documents in
+   * scope. `filter` selects which documents are counted. `match` selects
+   * which of their metadata entries are reported, with the filter grammar
+   * evaluated against each entry (a condition's `field` is the entry's `key` or
+   * `value`). Keys and values are windowed by `keyLimit`/`keyOffset` and
+   * `valueLimit`/`valueOffset`, and the result carries the totals and
+   * remainders needed to page. Every value reported is one an `eq` filter can
+   * match under the same scope, and the whole result comes from one database
+   * snapshot. Throws MetadataFilterError for an invalid predicate,
+   * MetadataOptionError for an option outside its domain, and
+   * MetadataBindingBudgetError when `filter` and `match` together bind more
+   * SQL parameters than one statement allows.
+   */
+  listMetadata(options?: ListMetadataOptions): Promise<ListMetadataResult>;
 
   /** Get names of collections included by default in queries */
   getDefaultCollectionNames(): Promise<string[]>;
@@ -510,6 +568,11 @@ export async function createStore(options: StoreOptions): Promise<QMDStore> {
       return result;
     },
     listCollections: async () => storeListCollections(db),
+    listMetadata: async (opts) => storeListMetadata(db, {
+      ...opts,
+      match: opts?.match === undefined ? undefined : parseMetadataMatch(opts.match),
+      filter: opts?.filter === undefined ? undefined : parseMetadataFilter(opts.filter),
+    }),
     getDefaultCollectionNames: async () => {
       const collections = storeListCollections(db);
       return collections.filter(c => c.includeByDefault).map(c => c.name);
@@ -564,6 +627,15 @@ export async function createStore(options: StoreOptions): Promise<QMDStore> {
         totalSkipped += result.skipped;
       }
 
+      // A changed file rewrites its document's hash in place and strands the
+      // old hash's partition rows, which take k slots from scoped searches;
+      // a hash that joined a collection while embedded elsewhere stays
+      // unsearchable there until its rows are copied. The copy runs first:
+      // the cleanup deletes the partition rows it copies from, so a document
+      // moved between collections would otherwise need a fresh embed.
+      const vectorsCopied = copyVectorsToNewCollections(db).copied;
+      const staleVectorsRemoved = cleanupOrphanedVectors(db);
+
       return {
         collections: filtered.length,
         indexed: totalIndexed,
@@ -571,6 +643,8 @@ export async function createStore(options: StoreOptions): Promise<QMDStore> {
         unchanged: totalUnchanged,
         removed: totalRemoved,
         skipped: totalSkipped,
+        staleVectorsRemoved,
+        vectorsCopied,
         needsEmbedding: internal.getHashesNeedingEmbedding(),
       };
     },

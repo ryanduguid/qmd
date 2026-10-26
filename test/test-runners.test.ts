@@ -82,7 +82,11 @@ function fixture(commandShims = false) {
   };
 }
 
-const packageStages = ["build", "grammars", "compiled CLI", "package wrapper", "compiled CLI"];
+const packageStages = [
+  "build", "grammars", "compiled CLI", "package wrapper", "package wrapper", "compiled CLI", "package wrapper",
+];
+// Stages up to the first Bun run: the compiled CLI and dist wrapper under Bun.
+const nodePackageStages = packageStages.slice(0, -2);
 for (const script of ["test-all.mjs", "package-smoke.mjs"]) {
   for (const shims of process.platform === "win32" ? [false, true] : [false]) {
     describe(`${script}${shims ? " (command shims)" : ""}`, () => {
@@ -125,7 +129,7 @@ test("package smoke honours the explicit Bun skip", () => {
   f.removeTool("bun");
   const result = f.run("package-smoke.mjs", { QMD_SKIP_BUN_SMOKE: "1" });
   expect(result.status, result.stderr).toBe(0);
-  expect(result.labels).toEqual(packageStages.slice(0, -1));
+  expect(result.labels).toEqual(nodePackageStages);
 });
 
 test("package smoke checks executable permissions only on platforms with execute bits", () => {
@@ -143,5 +147,5 @@ windowsTest("package smoke preserves a command shim failure and its quiet diagno
   const result = f.run("package-smoke.mjs");
   expect(result.status).toBe(23);
   expect(result.stderr).toContain("shim failure");
-  expect(result.labels).toEqual(packageStages.slice(0, -1));
+  expect(result.labels).toEqual(nodePackageStages);
 });

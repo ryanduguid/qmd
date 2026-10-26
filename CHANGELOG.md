@@ -2,13 +2,23 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `qmd doctor` selects vector sample identities before loading document bodies,
+  avoiding excessive SQLite memory use on large indexes with duplicate paths.
+  #978 (thanks @naveenspark)
+- Vector diagnostics match passages by their saved character position, avoiding
+  false mismatches when earlier chunks change the sequence numbering.
+  #978 (thanks @naveenspark)
+
 ### Added
 
 - Build the container install image in CI.
 - Add README navigation links to installation, usage, storage and model configuration.
 - README badges for this fork's code quality and CI.
 - Added Oxlint lint fence.
-- Document metadata and metadata filtering. Markdown documents can opt into typed metadata through a namespaced frontmatter block (`qmd.metadata` with strings, numbers, booleans, or flat homogeneous arrays), and every search surface — CLI `search`/`vsearch`/`query` via `--filter <json>`, the SDK's `filter` option on `search()`/`searchLex()`/`searchVector()`, the MCP `query` tool, and HTTP `POST /query` and `/search` — accepts one shared recursive filter AST discriminated by `operator`: `and`/`or`/`not` logical groups, `eq`/`ne`/`gt`/`gte`/`lt`/`lte` comparisons, `in`/`nin`/`all` membership, and `exists` presence. Every returned result satisfies the filter (applied before RRF fusion and reranking); like collection filtering, highly selective filters remain best-effort for top-K completeness. Frontmatter stays ordinary searchable content — no chunking, embedding, snippet, or line-number changes — and documents without `qmd.metadata` behave exactly as before. JSON/SDK/MCP/HTTP results now include each document's indexed metadata, and `qmd status` reports how many documents still need metadata extraction (a normal `qmd update` backfills existing indexes).
+- Document metadata and metadata filtering. Markdown documents can opt into typed metadata through a namespaced frontmatter block (`qmd.metadata` with strings, numbers, booleans, or flat homogeneous arrays), and every search surface — CLI `search`/`vsearch`/`query` via `--filter <json>`, the SDK's `filter` option on `search()`/`searchLex()`/`searchVector()`, the MCP `query` tool, and HTTP `POST /query` and `/search` — accepts one shared recursive filter AST discriminated by `operator`: `and`/`or`/`not` logical groups, `eq`/`ne`/`gt`/`gte`/`lt`/`lte` comparisons, `in`/`nin`/`all` membership, `contains`/`prefix`/`suffix` text matching, `type` for the stored type of a key's values, and `exists` presence, with an optional `caseInsensitive` flag on any condition whose value is a string (ASCII folding). Every returned result satisfies the filter (applied before RRF fusion and reranking); like collection filtering, highly selective filters remain best-effort for top-K completeness. Frontmatter stays ordinary searchable content — no chunking, embedding, snippet, or line-number changes — and documents without `qmd.metadata` behave exactly as before. JSON/SDK/MCP/HTTP results now include each document's indexed metadata, and `qmd status` reports how many documents still need metadata extraction (a normal `qmd update` backfills existing indexes).
+- Metadata discovery. Filtering is only useful when the caller knows what to filter on, so every surface now reports the metadata keys, types, and value counts already in the index — read from the existing metadata tables, with no re-indexing. The CLI adds `qmd collection metadata [name...]` with `--filter <json>` to count only documents matching a filter (same AST as search) and `--match <json>` to select which metadata entries are reported (the same AST evaluated per entry, where a condition's `field` is the entry's `key` or `value`, so one grammar covers a single key, a family of keys, reverse lookup of a value, typed thresholds, and any `and`/`or`/`not` composition), plus `--key-limit`/`--key-offset`/`--all-keys` and `--value-limit`/`--value-offset`/`--all-values` to page both windows, and `--sort count|value` and `--min-count <n>` to order and trim values. Every windowed list reports its exact remainder, counts are documents rather than values, numbers report min/median/max, keys whose documents disagree on type are split per type with their own counts, and with `--filter` every coverage count is measured against the documents the filter admits. `qmd collection list` names each collection's top keys, `qmd collection show` details them with a value preview, and `qmd status` summarizes coverage. The SDK adds `listMetadata(options)` (the same options, spelled `keyLimit`, `valueLimit`, and so on, with `MetadataOptionError` for a value outside its domain and `MetadataBindingBudgetError` for a filter and match that together bind too many SQL parameters), the MCP server adds a `metadata` tool and lists each collection's most covered keys in `status`, and the HTTP server adds `POST /metadata`. `MetadataFilter` and `MetadataMatch` are both `MetadataPredicate<Condition>`, one recursive grammar over the conditions a document or a metadata entry admits.
 
 ### Fixed
 
@@ -21,10 +31,113 @@
   and command shims on Windows, report missing executables, and preserve child failure statuses.
   Package smoke checks retain execute-bit validation on POSIX only.
 
+- Filtered vector search binds candidate IDs as one JSON list, so a parser-valid metadata filter cannot exhaust Node's SQL variable limit during document lookup. Applies to both exact scans and the capped global fallback.
+- Collection- and metadata-scoped BM25 search (`qmd search -c`, the lex leg of
+  `qmd query`, MCP, SDK `searchLex`) no longer returns false-empty or
+  incomplete results when stronger matches outside the scope fill the old
+  `limit * 10` candidate window (#922). The scope is now applied to the full
+  FTS5 match set, materialized once, so `search -c <collection>` is exact for
+  common terms; unscoped search keeps its early-terminating plan. A search over
+  several collections, such as the default ones, runs one keyword query instead
+  of one per collection, which made keyword search about 12x faster over 13
+  collections (thanks @brettdavies). Builds on the approach in #918 (thanks
+  @fxstein). #953 (thanks @Mr-Beasley)
+
+- `qmd update` no longer deactivates every document in a collection whose root
+  folder is missing, for example an unmounted drive or an offline network share.
+  The folder globbed to an empty list, which read as "every file was deleted",
+  so search went empty and a `qmd cleanup` before the drive came back deleted
+  the rows for good. The collection is now reported as not found and its index
+  is left unchanged. Permission and I/O errors still fail with their original
+  cause (#989). #990 (thanks @ParkerRex)
 - Embedding generation and legacy fingerprint adoption now tokenize documents
   with the store-selected embedding model instead of the global default. This
   keeps chunk boundaries aligned with the model that creates and verifies the
   stored vectors without initializing an unrelated provider.
+- `qmd doctor` no longer stalls or fills the temp directory on large indexes
+  when checking legacy (empty-fingerprint) embeddings. The adoption sample
+  query joined `content` and grouped by the document body, so SQLite
+  materialized the full body once per legacy chunk and per active path before
+  `LIMIT 1` discarded it, the same pattern as the doctor vector-sample check
+  (#978). It now picks the sample row through indexes and loads only that
+  row's body; the sampled chunk is unchanged (#994). #995 (thanks @mjaverto)
+
+### Changed
+
+- The MCP server caches its instructions per store for up to 60 seconds instead
+  of rebuilding them, with a full index-status scan, for every HTTP request.
+  Concurrent requests share one build and a failed build is not cached; index
+  changes from other processes show up in the instructions within a minute.
+  #815 (thanks @fxstein)
+- Avoid a redundant runtime process on packaged CLI calls where the launcher is
+  already running under its selected Node or Bun runtime. #923 (thanks @ilepn)
+- `qmd update` no longer reads files whose modification time and size match
+  the last pass (tracked in a new `file_sync_state` table), so re-indexing an
+  unchanged collection takes seconds. A cached entry counts only while its
+  document is still active at that path with that content, so a collection
+  removed and added back is re-indexed, while a renamed one keeps its entries;
+  files with missing or outdated metadata are still re-extracted. `qmd update`
+  and `qmd collection add` skip files over 10 MB with `FILE_TOO_LARGE`, and
+  `qmd update` deactivates a previously indexed file that becomes empty or is
+  over 10 MB, including one indexed by an earlier release. #962 (thanks
+  @rikvanriel)
+- Search results carry at most the first 262,144 characters of each document
+  body (`qmd search --full`, MCP results, keyword and vector hits), which
+  bounds memory on indexes with very large documents. A match past that point
+  is still found, but its snippet, and the passage the reranker scores, come
+  from the start of the document. #962 (thanks @rikvanriel)
+- `qmd update` and `qmd collection add` write a collection scan in short
+  transactions instead of committing every row on its own, so a first index
+  of 20,000 files takes about 5 s instead of about 3 minutes. #1021 (thanks
+  @brettdavies)
+
+- `qmd query` and `qmd vsearch` now drop repeated query expansions before
+  searching. The expansion model can repeat a line, and the cache kept every
+  copy: one reported query ran 23 expansions where 9 were distinct, and each
+  copy ran its own search. Cached expansions are deduplicated when read, so
+  existing caches need no rebuild. Repeated lex lines used to count more than
+  once in the rank fusion, so result order can shift slightly. (#921)
+  #1000 (thanks @ParkerRex)
+- Structured searches over several collections (`qmd query` with
+  `lex:`/`vec:`/`hyde:` lines, the MCP `query` tool, SDK `queries`) run one
+  search per line over the whole collection list, a keyword search for a
+  `lex:` line and a vector search for a `vec:` or `hyde:` line, and fuse one
+  ranked list per search. Rankings no longer depend on the order the
+  collections are named. #946 (thanks @shalom-t), #1009 (thanks @xidus90)
+
+### Changed
+
+- The vector index is partitioned by collection. Each embedded chunk is
+  stored once per collection that holds it, under an integer collection id,
+  so a collection-scoped `qmd query` or `qmd vsearch` scans only that
+  collection's vectors instead of pre-filtering the whole index, and a small
+  collection is never crowded out of the results by a large one. The first
+  command after upgrading converts the index in place and prints its
+  progress; the conversion resumes from where it stopped if interrupted, two
+  commands started at once share it, and a VACUUM at the end reclaims the
+  space of the old table. `qmd collection rename` no longer touches vectors,
+  `qmd update` removes, as it finishes, the vectors of content that no
+  indexed document holds any more (content that comes back later is embedded
+  again), and `qmd update` and `qmd embed` copy an already-embedded document
+  into a collection that gains it instead of embedding it again. A
+  metadata-filtered vector search returns the nearest documents the filter
+  admits however many chunks it admits, and a vector search fills its limit
+  even when one long document holds all of the nearest chunks. Downgrading
+  to an older qmd afterwards needs `qmd embed -f`, and a `qmd mcp` server
+  started before the upgrade must be restarted. #983 (thanks @brettdavies)
+
+### Changed
+
+- `qmd cleanup` repacks the vector table when fewer than 90% of its chunk
+  reads hold live rows. vec0 fills the first free slot of its newest chunk
+  and reclaims a chunk only once it is empty, so re-embeds and orphan removal
+  leave holes in older chunks that every brute-force scan still reads; a
+  794k-vector index at 36% occupancy scanned twice as slowly as a packed copy
+  of the same rows. The repack moves the live rows of each mostly-empty chunk
+  to the tail, one chunk per short transaction, so it never holds the write
+  lock for long and an interrupted run leaves a consistent table. The cleanup
+  output and `qmd cleanup --dry-run` report the chunk counts.
+  #937 (thanks @brettdavies)
 
 ## [2.8.3] - 2026-08-16
 
