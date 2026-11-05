@@ -8,6 +8,8 @@
 
 </div>
 
+ryanduguid/qmd is [Ryan Duguid](https://duguid.com.au/)'s fork of [tobi/qmd](https://github.com/tobi/qmd), adding Windows test runner paths, fine-tuning work paths outside the shared temporary directory, a verified mise installer and pinned CI actions for QMD contributors who need those changes.
+
 GitHub Actions is off for this fork, so `ci.yml` does not run on GitHub. Run its steps locally before merging.
 
 An on-device search engine for everything you need to remember. Index your markdown notes, meeting transcripts, documentation, and knowledge bases. Search with keywords or natural language. Ideal for your agentic flows.
